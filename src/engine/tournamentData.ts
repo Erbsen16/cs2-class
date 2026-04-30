@@ -1,0 +1,144 @@
+// CS2 tournament data — manual structure + auto-updated match results via scripts/update-data.ts
+// Last updated: 2026-04-30
+
+export interface RealTeam {
+  id: string; name: string; shortName: string; region: string; rank: number; color: string;
+}
+
+export interface RealMatch {
+  id: string; teamA: string; teamB: string; winner: string | null; score?: string;
+  stage: string; round?: string; matchType: string; played: boolean; date?: string;
+}
+
+export interface RealTournament {
+  id: string; name: string; fullName: string; icon: string; color: string;
+  organizer: string; dates: string; location: string; prize: string; format: string;
+  stages: { name: string; desc: string; type: 'gsl' | 'swiss' | 'playoff8' | 'playoff6';
+    groups?: { name: string; matches: RealMatch[] }[];
+    matches?: RealMatch[]; playoffMatches?: RealMatch[];
+  }[];
+}
+
+// ── Teams ──
+
+const blastTeams: RealTeam[] = [
+  { id: 'vitality', name: 'Vitality', shortName: 'VIT', region: 'EU', rank: 1, color: '#f0a500' },
+  { id: 'navi', name: 'NAVI', shortName: 'NAVI', region: 'EU', rank: 2, color: '#ffdc00' },
+  { id: 'g2', name: 'G2', shortName: 'G2', region: 'EU', rank: 11, color: '#ff0000' },
+  { id: 'astralis', name: 'Astralis', shortName: 'AST', region: 'EU', rank: 10, color: '#e71d36' },
+  { id: 'faze', name: 'FaZe Clan', shortName: 'FAZE', region: 'EU', rank: 17, color: '#ff3c1f' },
+  { id: 'furia', name: 'FURIA', shortName: 'FUR', region: 'AM', rank: 4, color: '#000000' },
+  { id: 'gamerlegion', name: 'GamerLegion', shortName: 'GL', region: 'EU', rank: 31, color: '#6c5ce7' },
+  { id: 'fut', name: 'FUT Esports', shortName: 'FUT', region: 'EU', rank: 9, color: '#e82c4c' },
+];
+
+const iemTeams: RealTeam[] = [
+  { id: 'vitality', name: 'Vitality', shortName: 'VIT', region: 'EU', rank: 1, color: '#f0a500' },
+  { id: 'navi', name: 'NAVI', shortName: 'NAVI', region: 'EU', rank: 2, color: '#ffdc00' },
+  { id: 'faze', name: 'FaZe Clan', shortName: 'FAZE', region: 'EU', rank: 17, color: '#ff3c1f' },
+  { id: 'furia', name: 'FURIA', shortName: 'FUR', region: 'AM', rank: 4, color: '#000000' },
+  { id: 'astralis', name: 'Astralis', shortName: 'AST', region: 'EU', rank: 10, color: '#e71d36' },
+  { id: 'liquid', name: 'Liquid', shortName: 'TL', region: 'AM', rank: 24, color: '#3b82f6' },
+  { id: 'gamerlegion', name: 'GamerLegion', shortName: 'GL', region: 'EU', rank: 31, color: '#6c5ce7' },
+  { id: 'fut', name: 'FUT Esports', shortName: 'FUT', region: 'EU', rank: 9, color: '#e82c4c' },
+  { id: 'pain', name: 'paiN', shortName: 'PAIN', region: 'AM', rank: 27, color: '#ef4444' },
+  { id: 'm80', name: 'M80', shortName: 'M80', region: 'AM', rank: 23, color: '#14b8a6' },
+  { id: 'legacy', name: 'Legacy', shortName: 'LGC', region: 'AM', rank: 14, color: '#a855f7' },
+  { id: 'b8', name: 'B8', shortName: 'B8', region: 'EU', rank: 15, color: '#0ea5e9' },
+  { id: 'nrg', name: 'NRG', shortName: 'NRG', region: 'AM', rank: 28, color: '#6366f1' },
+  { id: 'betboom', name: 'BetBoom', shortName: 'BB', region: 'EU', rank: 22, color: '#f59e0b' },
+  { id: 'sinners', name: 'SINNERS', shortName: 'SIN', region: 'EU', rank: 32, color: '#ec4899' },
+  { id: 'passionua', name: 'Passion UA', shortName: 'PUA', region: 'EU', rank: 34, color: '#8b5cf6' },
+];
+
+const cacTeams: RealTeam[] = [
+  { id: 'pv', name: 'PARIVISION', shortName: 'PV', region: 'EU', rank: 3, color: '#8b5cf6' },
+  { id: 'falcons', name: 'Falcons', shortName: 'FLC', region: 'EU', rank: 6, color: '#2dd4bf' },
+  { id: 'mouz', name: 'MOUZ', shortName: 'MOUZ', region: 'EU', rank: 7, color: '#e11d48' },
+  { id: 'aurora', name: 'Aurora', shortName: 'AUR', region: 'EU', rank: 5, color: '#f97316' },
+  { id: 'mongolz', name: 'The MongolZ', shortName: 'MGLZ', region: 'AS', rank: 8, color: '#2563eb' },
+  { id: 'liquid', name: 'Liquid', shortName: 'TL', region: 'AM', rank: 24, color: '#3b82f6' },
+  { id: 'b8', name: 'B8', shortName: 'B8', region: 'EU', rank: 15, color: '#0ea5e9' },
+  { id: '3dmax', name: '3DMAX', shortName: '3DM', region: 'EU', rank: 24, color: '#facc15' },
+  { id: 'legacy', name: 'Legacy', shortName: 'LGC', region: 'AM', rank: 14, color: '#a855f7' },
+  { id: 'nrg', name: 'NRG', shortName: 'NRG', region: 'AM', rank: 28, color: '#6366f1' },
+  { id: 'pain', name: 'paiN', shortName: 'PAIN', region: 'AM', rank: 27, color: '#ef4444' },
+  { id: 'm80', name: 'M80', shortName: 'M80', region: 'AM', rank: 23, color: '#14b8a6' },
+  { id: 'bcg', name: 'BC.Game', shortName: 'BCG', region: 'EU', rank: 54, color: '#f43f5e' },
+  { id: 'mibr', name: 'MIBR', shortName: 'MIBR', region: 'AM', rank: 49, color: '#06b6d4' },
+  { id: 'tyloo', name: 'TYLOO', shortName: 'TYL', region: 'AS', rank: 26, color: '#dc2626' },
+  { id: 'lynnvision', name: 'Lynn Vision', shortName: 'LV', region: 'AS', rank: 39, color: '#eab308' },
+];
+
+// ── Tournaments ──
+
+export const major: RealTournament = {
+  id: 'major', name: 'Major', fullName: 'IEM 科隆 Major 2026', icon: '🏆', color: '#f0a500',
+  organizer: 'Valve (ESL)', dates: '2026.06.02 – 06.21', location: '科隆, 德国',
+  prize: '$1,250,000', format: '瑞士轮×3 → 8 队单败',
+  stages: [{ name: '待公布', desc: '32 支参赛队伍名单即将确认', type: 'swiss', groups: [] }],
+};
+
+export const iemAtlanta: RealTournament = {
+  id: 'iem', name: 'IEM', fullName: 'IEM 亚特兰大 2026', icon: '🔷', color: '#007AFF',
+  organizer: 'ESL', dates: '2026.05.11 – 05.17', location: '亚特兰大, 美国',
+  prize: '$1,000,000', format: 'GSL 双败 → 6 队单败',
+  stages: [{ name: '小组赛', desc: '16 队分两组 GSL 双败，名单已确认', type: 'gsl', groups: [
+    { name: 'A 组', matches: [] },
+    { name: 'B 组', matches: [] },
+  ]}],
+};
+
+export const blastRivals: RealTournament = {
+  id: 'blast', name: 'BLAST', fullName: 'BLAST Rivals Spring 2026', icon: '⚡', color: '#5856D6',
+  organizer: 'BLAST', dates: '2026.04.29 – 05.03', location: 'Fort Worth, Texas, USA',
+  prize: '$1,000,000', format: 'GSL 双败 → 6 队单败',
+  stages: [
+    {
+      name: '小组赛 · A/B 组', desc: '每组 4 队，4 场比赛，3 队晋级。各组第 1 直通半决赛。',
+      type: 'gsl',
+      groups: [
+        {
+          name: 'A 组', matches: [
+            { id: 'a-m1', teamA: 'vitality', teamB: 'fut', winner: 'vitality', score: '2-1', stage: 'group-a', matchType: 'BO3', played: true, date: '04.29', round: '#1 vs #4' },
+            { id: 'a-m2', teamA: 'g2', teamB: 'astralis', winner: 'g2', score: '2-0', stage: 'group-a', matchType: 'BO3', played: true, date: '04.29', round: '#2 vs #3' },
+            { id: 'a-m3', teamA: 'fut', teamB: 'astralis', winner: 'astralis', score: '0-2', stage: 'group-a', matchType: 'BO3', played: true, date: '04.30', round: '败者组（淘汰赛）' },
+            { id: 'a-m4', teamA: 'vitality', teamB: 'g2', winner: null, stage: 'group-a', matchType: 'BO3', played: false, date: '04.30', round: '胜者组决赛' },
+          ],
+        },
+        {
+          name: 'B 组', matches: [
+            { id: 'b-m1', teamA: 'navi', teamB: 'faze', winner: 'navi', score: '2-0', stage: 'group-b', matchType: 'BO3', played: true, date: '04.29', round: '#1 vs #4' },
+            { id: 'b-m2', teamA: 'furia', teamB: 'gamerlegion', winner: 'gamerlegion', score: '1-2', stage: 'group-b', matchType: 'BO3', played: true, date: '04.29', round: '#2 vs #3' },
+            { id: 'b-m3', teamA: 'faze', teamB: 'furia', winner: null, stage: 'group-b', matchType: 'BO3', played: false, date: '04.30', round: '败者组（淘汰赛）' },
+            { id: 'b-m4', teamA: 'navi', teamB: 'gamerlegion', winner: null, stage: 'group-b', matchType: 'BO3', played: false, date: '05.01', round: '胜者组决赛' },
+          ],
+        },
+      ],
+    },
+    {
+      name: '季后赛 · 6 队单败', desc: 'QF(2场) → SF(2场) → Final(BO5)。各组第1轮空直通SF。',
+      type: 'playoff6', playoffMatches: [],
+    },
+  ],
+};
+
+export const cac2026: RealTournament = {
+  id: 'cac', name: 'CAC 2026', fullName: 'CS Asia Championships 2026', icon: '🌏', color: '#e53935',
+  organizer: 'Perfect World', dates: '2026.05.20 – 05.24', location: '上海, 中国',
+  prize: '$1,000,000', format: 'GSL 双败 → 8 队单败',
+  stages: [
+    { name: '小组赛', desc: '16 队分两组 GSL 双败，BO1 首轮 BO3 后续', type: 'gsl', groups: [
+      { name: 'A 组（已确认）', matches: [] },
+      { name: 'B 组（已确认）', matches: [] },
+    ]},
+    { name: '季后赛', desc: 'SF(BO3) → 季军赛(BO3) → Final(BO5)', type: 'playoff8', playoffMatches: [] },
+  ],
+};
+
+export const tournaments: Record<string, { info: RealTournament; teams: RealTeam[] }> = {
+  major: { info: major, teams: [] },
+  iem: { info: iemAtlanta, teams: iemTeams },
+  blast: { info: blastRivals, teams: blastTeams },
+  cac: { info: cac2026, teams: cacTeams },
+};

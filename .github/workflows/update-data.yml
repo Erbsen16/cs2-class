@@ -1,0 +1,33 @@
+name: Update CS2 Tournament Data
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # every 6 hours
+  workflow_dispatch:        # manual trigger
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm ci
+
+      - name: Fetch tournament data
+        run: npx tsx scripts/update-data.ts
+        continue-on-error: true
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/engine/tournamentData.ts
+          git diff --staged --quiet || git commit -m "chore: auto-update tournament data [skip ci]"
+          git push
