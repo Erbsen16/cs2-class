@@ -22,11 +22,6 @@ function simulateMatch(teamA: Team, teamB: Team, rand: () => number, bo1: boolea
   return rand() < winChance ? teamA.id : teamB.id;
 }
 
-function calcBuchholz(record: SwissRecord, allRecords: SwissRecord[]): number {
-  // Sum of opponents' wins
-  return 0; // Simplified for demo
-}
-
 export function generateSwissStage(
   teams: Team[],
   stageId: 'swiss1' | 'swiss2' | 'swiss3',

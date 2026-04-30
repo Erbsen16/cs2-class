@@ -250,7 +250,7 @@ function MatchCard({ mid, slots, r1, onClick, hovering, onDrop, onClear, onHover
   );
 }
 
-function Slot3({ slotId, team, isR1, hovering, onDrop, onClear, onClick, onHover, onDragTeam }: any) {
+function Slot3({ slotId, team, isR1, hovering, onDrop, onClear, onClick, onHover }: any) {
   const hov = hovering === slotId;
   return (
     <div

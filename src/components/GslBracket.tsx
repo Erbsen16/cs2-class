@@ -76,8 +76,6 @@ function MNode({ match, sub, accent, loss }: {
   match: { teamA: string; teamB: string; winner: string | null };
   sub?: string; accent?: boolean; loss?: boolean;
 }) {
-  const a = getTeam(match.teamA);
-  const b = getTeam(match.teamB);
   const border = accent ? '1px solid rgba(0,122,255,0.2)' : loss ? '1px solid rgba(255,59,48,0.15)' : '1px solid var(--border)';
   return (
     <div style={{ background: 'white', border, borderRadius: 10, padding: '4px 0' }}>

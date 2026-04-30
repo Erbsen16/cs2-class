@@ -61,7 +61,6 @@ export function generateGSLGroup(
   // M3: M1L vs M2L → winner=#3, loser=4th
   mid++;
   const m3W = simWinner(getTeam(m1L), getTeam(m2L), rand);
-  const m3L = m3W === m1L ? m2L : m1L;
   matches.push({
     id: `gsl-${groupName}-m${mid}`,
     teamA: m1L, teamB: m2L, winner: m3W,

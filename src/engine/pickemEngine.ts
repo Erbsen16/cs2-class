@@ -128,16 +128,14 @@ export function generateIEMPickem(): PickemTournament {
   });
 
   // Stage 2: Playoffs (6-team → pick champion)
-  const groupAAdv = [gslMatches[3].winner!, gslMatches[2].winner!, gslMatches[2].winner === gslMatches[2].teamA ? gslMatches[2].teamB : gslMatches[2].teamA];
-  const groupBAdv = [gslMatches[7].winner!, gslMatches[6].winner!, gslMatches[6].winner === gslMatches[6].teamA ? gslMatches[6].teamB : gslMatches[6].teamA];
-  // Wait, GSL has 4 matches per group: M1(1v4), M2(2v3), M3(losers), M4(upper final)
+  // GSL has 4 matches per group: M1(1v4), M2(2v3), M3(losers), M4(upper final)
   // advanced: [M4W (#1), M4L (#2), M3W (#3)]
   const allAdv = [
     realTeams.find(t => t.id === gslMatches[3]?.winner)!,
-    realTeams.find(t => t.id === (gslMatches[3]?.winner === gslMatches[3]?.teamA ? gslMatches[3]?.teamB : gslMatches[3]?.teamA))!,
+    realTeams.find(t => t.id === (gslMatches[3]?.winner === gslMatches[3]?.teamA.id ? gslMatches[3]?.teamB.id : gslMatches[3]?.teamA.id))!,
     realTeams.find(t => t.id === gslMatches[2]?.winner)!,
     realTeams.find(t => t.id === gslMatches[7]?.winner)!,
-    realTeams.find(t => t.id === (gslMatches[7]?.winner === gslMatches[7]?.teamA ? gslMatches[7]?.teamB : gslMatches[7]?.teamA))!,
+    realTeams.find(t => t.id === (gslMatches[7]?.winner === gslMatches[7]?.teamA.id ? gslMatches[7]?.teamB.id : gslMatches[7]?.teamA.id))!,
     realTeams.find(t => t.id === gslMatches[6]?.winner)!,
   ];
   const playoffs6 = generatePlayoff6Bracket(allAdv, rng);
@@ -173,10 +171,10 @@ export function generateBLASTPickem(): PickemTournament {
 
   const allAdv = [
     realTeams.find(t => t.id === gslMatches[3]?.winner)!,
-    realTeams.find(t => t.id === (gslMatches[3]?.winner === gslMatches[3]?.teamA ? gslMatches[3]?.teamB : gslMatches[3]?.teamA))!,
+    realTeams.find(t => t.id === (gslMatches[3]?.winner === gslMatches[3]?.teamA.id ? gslMatches[3]?.teamB.id : gslMatches[3]?.teamA.id))!,
     realTeams.find(t => t.id === gslMatches[2]?.winner)!,
     realTeams.find(t => t.id === gslMatches[7]?.winner)!,
-    realTeams.find(t => t.id === (gslMatches[7]?.winner === gslMatches[7]?.teamA ? gslMatches[7]?.teamB : gslMatches[7]?.teamA))!,
+    realTeams.find(t => t.id === (gslMatches[7]?.winner === gslMatches[7]?.teamA.id ? gslMatches[7]?.teamB.id : gslMatches[7]?.teamA.id))!,
     realTeams.find(t => t.id === gslMatches[6]?.winner)!,
   ];
   const playoffs6 = generatePlayoff6Bracket(allAdv, rng);

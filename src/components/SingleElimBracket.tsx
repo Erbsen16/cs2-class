@@ -73,9 +73,6 @@ export default function SingleElimBracket({ matches, champion, groupWinners }: S
     return () => window.removeEventListener('resize', drawLines);
   }, [matches]);
 
-  const svgW = containerRef.current?.offsetWidth || 900;
-  const svgH = containerRef.current?.offsetHeight || 600;
-
   return (
     <div style={{
       background: 'var(--bg-card-solid)',
@@ -273,8 +270,8 @@ function SixTeamColumns({
 
 /* ── Reusable pieces ── */
 
-function RoundColumn({ label, round, accent, compact, children }: {
-  label: string; round: string; accent?: boolean; compact?: boolean;
+function RoundColumn({ label, accent, compact, children }: {
+  label: string; round?: string; accent?: boolean; compact?: boolean;
   children: React.ReactNode;
 }) {
   return (
