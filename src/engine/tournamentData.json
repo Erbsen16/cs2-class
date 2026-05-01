@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-05-01T12:15:22.325Z",
+  "lastUpdated": "2026-05-01T12:19:59.403Z",
   "tournaments": {
     "blast": {
       "info": {
@@ -416,7 +416,7 @@
           "name": "Vitality",
           "shortName": "VITA",
           "region": "EU",
-          "rank": 99,
+          "rank": 1,
           "color": "#3b82f6"
         },
         {
@@ -424,7 +424,7 @@
           "name": "Natus Vincere",
           "shortName": "NATU",
           "region": "EU",
-          "rank": 99,
+          "rank": 2,
           "color": "#3b82f6"
         },
         {
@@ -432,7 +432,7 @@
           "name": "FUT",
           "shortName": "FUT",
           "region": "EU",
-          "rank": 99,
+          "rank": 9,
           "color": "#3b82f6"
         },
         {
@@ -440,7 +440,7 @@
           "name": "Astralis",
           "shortName": "ASTR",
           "region": "EU",
-          "rank": 99,
+          "rank": 10,
           "color": "#3b82f6"
         },
         {
@@ -448,7 +448,7 @@
           "name": "Legacy",
           "shortName": "LEGA",
           "region": "EU",
-          "rank": 99,
+          "rank": 14,
           "color": "#3b82f6"
         },
         {
@@ -456,7 +456,7 @@
           "name": "B8",
           "shortName": "B",
           "region": "EU",
-          "rank": 99,
+          "rank": 15,
           "color": "#3b82f6"
         },
         {
@@ -464,7 +464,7 @@
           "name": "FaZe",
           "shortName": "FAZE",
           "region": "EU",
-          "rank": 99,
+          "rank": 17,
           "color": "#3b82f6"
         },
         {
@@ -472,7 +472,7 @@
           "name": "BetBoom",
           "shortName": "BETB",
           "region": "EU",
-          "rank": 99,
+          "rank": 22,
           "color": "#3b82f6"
         },
         {
@@ -480,7 +480,7 @@
           "name": "M80",
           "shortName": "M",
           "region": "EU",
-          "rank": 99,
+          "rank": 23,
           "color": "#3b82f6"
         },
         {
@@ -488,7 +488,7 @@
           "name": "Liquid",
           "shortName": "LIQU",
           "region": "EU",
-          "rank": 99,
+          "rank": 24,
           "color": "#3b82f6"
         },
         {
@@ -496,7 +496,7 @@
           "name": "paiN",
           "shortName": "PAIN",
           "region": "EU",
-          "rank": 99,
+          "rank": 27,
           "color": "#3b82f6"
         },
         {
@@ -504,7 +504,7 @@
           "name": "NRG",
           "shortName": "NRG",
           "region": "EU",
-          "rank": 99,
+          "rank": 28,
           "color": "#3b82f6"
         },
         {
@@ -512,7 +512,7 @@
           "name": "GamerLegion",
           "shortName": "GAME",
           "region": "EU",
-          "rank": 99,
+          "rank": 31,
           "color": "#3b82f6"
         },
         {
@@ -520,7 +520,7 @@
           "name": "SINNERS",
           "shortName": "SINN",
           "region": "EU",
-          "rank": 99,
+          "rank": 32,
           "color": "#3b82f6"
         },
         {
@@ -528,7 +528,7 @@
           "name": "Passion UA",
           "shortName": "PASS",
           "region": "EU",
-          "rank": 99,
+          "rank": 34,
           "color": "#3b82f6"
         },
         {
@@ -536,7 +536,7 @@
           "name": "BC.Game",
           "shortName": "BCG",
           "region": "EU",
-          "rank": 99,
+          "rank": 54,
           "color": "#3b82f6"
         }
       ]
