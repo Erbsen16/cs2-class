@@ -35,9 +35,9 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 // Tournament configs we care about (HLTV event names)
 const TRACKED_TOURNAMENTS = [
-  { id: 'blast', name: 'BLAST Rivals Spring 2026', color: '#5856D6', icon: '⚡' },
+  { id: 'blast', name: 'BLAST Rivals 2026 Season 1', color: '#5856D6', icon: '⚡' },
   { id: 'cac', name: 'CAC 2026', color: '#e53935', icon: '🌏' },
-  { id: 'major', name: 'IEM Cologne 2026', color: '#f0a500', icon: '🏆' },
+  { id: 'major', name: 'IEM Cologne Major 2026', color: '#f0a500', icon: '🏆' },
   { id: 'iem', name: 'IEM Atlanta 2026', color: '#007AFF', icon: '🔷' },
 ];
 
@@ -118,11 +118,12 @@ async function main() {
   for (const cfg of TRACKED_TOURNAMENTS) {
     console.log(`\nProcessing: ${cfg.name}...`);
 
-    // Find matching event
-    const event = events.find((e: any) =>
+    // Find matching event — prefer the main event, skip stage/qualifier sub-events
+    const candidates = events.filter((e: any) =>
       e.name?.toLowerCase().includes(cfg.name.toLowerCase()) ||
       cfg.name.toLowerCase().includes(e.name?.toLowerCase())
     );
+    const event = candidates.find((e: any) => !/(?:stage|qualif|closed|open)\s*\d/i.test(e.name)) || candidates[0];
 
     if (!event) {
       console.log(`  Not found on HLTV — using existing data`);
@@ -173,57 +174,72 @@ async function main() {
       round: m.title || '',
     }));
 
-    // Build stages from match data
-    const groupMatches = matches.filter(m => m.stage === 'group' || m.stage.includes('group'));
-    const playoffMatches = matches.filter(m => m.stage === 'playoff' || m.stage.includes('playoff'));
+    // If HLTV has no match data but we have existing data with matches, keep existing
+    const existingHasMatches = existing[cfg.id]?.info?.stages?.some((s: any) => {
+      if (s.groups) for (const g of s.groups) if (g.matches?.length) return true;
+      if (s.playoffMatches?.length) return true;
+      return false;
+    });
 
-    const stages: any[] = [];
-    if (groupMatches.length > 0) {
-      const half = Math.ceil(groupMatches.length / 2);
-      stages.push({
-        name: '小组赛',
-        desc: `${teams.length} 支队伍参赛`,
-        type: 'gsl',
-        groups: [
-          { name: 'A 组', matches: groupMatches.slice(0, half) },
-          ...(half < groupMatches.length ? [{ name: 'B 组', matches: groupMatches.slice(half) }] : []),
-        ],
-      });
-    }
-    if (playoffMatches.length > 0) {
-      stages.push({
-        name: '季后赛',
-        desc: '单败淘汰',
-        type: 'playoff8',
-        playoffMatches,
-      });
-    }
+    if (matches.length === 0 && existingHasMatches) {
+      console.log(`  No matches from HLTV — keeping existing stages but updating teams`);
+      tournamentData[cfg.id] = {
+        info: { ...existing[cfg.id].info, organizer: event.organizer || existing[cfg.id].info.organizer, dates: event.dateRange || existing[cfg.id].info.dates },
+        teams,
+      };
+    } else {
+      // Build stages from match data
+      const groupMatches = matches.filter(m => m.stage === 'group' || m.stage.includes('group'));
+      const playoffMatches = matches.filter(m => m.stage === 'playoff' || m.stage.includes('playoff'));
 
-    if (stages.length === 0) {
-      stages.push({
-        name: eventDetail?.prize ? '进行中' : '待公布',
-        desc: eventDetail?.prize || '参赛队伍待公布',
-        type: 'gsl',
-        groups: [],
-      });
-    }
+      const stages: any[] = [];
+      if (groupMatches.length > 0) {
+        const half = Math.ceil(groupMatches.length / 2);
+        stages.push({
+          name: '小组赛',
+          desc: `${teams.length} 支队伍参赛`,
+          type: 'gsl',
+          groups: [
+            { name: 'A 组', matches: groupMatches.slice(0, half) },
+            ...(half < groupMatches.length ? [{ name: 'B 组', matches: groupMatches.slice(half) }] : []),
+          ],
+        });
+      }
+      if (playoffMatches.length > 0) {
+        stages.push({
+          name: '季后赛',
+          desc: '单败淘汰',
+          type: 'playoff8',
+          playoffMatches,
+        });
+      }
 
-    tournamentData[cfg.id] = {
-      info: {
-        id: cfg.id,
-        name: cfg.id === 'major' ? 'Major' : cfg.id === 'cac' ? 'CAC 2026' : event.name || cfg.name,
-        fullName: event.name || cfg.name,
-        icon: cfg.icon,
-        color: cfg.color,
-        organizer: event.organizer || '',
-        dates: event.dateRange || '',
-        location: typeof event.location === 'string' ? event.location : event.location?.name || '',
-        prize: event.prize || '',
-        format: event.format || '',
-        stages,
-      },
-      teams,
-    };
+      if (stages.length === 0) {
+        stages.push({
+          name: eventDetail?.prize ? '进行中' : '待公布',
+          desc: eventDetail?.prize || '参赛队伍待公布',
+          type: 'gsl',
+          groups: [],
+        });
+      }
+
+      tournamentData[cfg.id] = {
+        info: {
+          id: cfg.id,
+          name: cfg.id === 'major' ? 'Major' : cfg.id === 'cac' ? 'CAC 2026' : event.name || cfg.name,
+          fullName: event.name || cfg.name,
+          icon: cfg.icon,
+          color: cfg.color,
+          organizer: event.organizer || '',
+          dates: event.dateRange || '',
+          location: typeof event.location === 'string' ? event.location : event.location?.name || '',
+          prize: event.prize || '',
+          format: event.format || '',
+          stages,
+        },
+        teams,
+      };
+    }
   }
 
   // Write output
