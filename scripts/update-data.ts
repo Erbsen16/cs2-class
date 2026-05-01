@@ -6,6 +6,8 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const { HLTV } = require('hltv');
+const { fetchPage, generateRandomSuffix } = require('hltv/lib/utils');
+const { defaultConfig } = require('hltv/lib/config');
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -87,6 +89,128 @@ async function fetchTeamRanking(): Promise<Map<string, { rank: number; region: s
   }
 }
 
+/**
+ * Scrape match results from HLTV event page HTML.
+ * getEvent() doesn't return matches, but the event page has bracket data
+ * embedded in JSON format with team names, scores, and match IDs.
+ */
+async function scrapeEventMatches(eventId: number, _eventName: string): Promise<SimpleMatch[]> {
+  try {
+    // Use event overview page with random suffix (same pattern as HLTV package)
+    const url = `https://www.hltv.org/events/${eventId}/${generateRandomSuffix()}`;
+    const page = await retry(() => fetchPage(url, defaultConfig.loadPage), `Event page ${eventId}`);
+    const raw = page.html();
+    // Decode HTML entities
+    const html = raw.replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+
+    // Extract match URLs and scores, then pair them
+    // Pattern: FixedTeam with team name, followed by or near a matchScore
+    // HLTV page structure: slotId -> matchup -> { match, result, team1, team2 }
+
+    // Find all matchup blocks
+    const matchupRe = /"slotId":\{"id":"([^"]+)"\},"matchup":\{(.*?)(?="slotId"|$)/g;
+    const matchups: { slot: string; data: string }[] = [];
+    let mm;
+    while ((mm = matchupRe.exec(html)) !== null) {
+      matchups.push({ slot: mm[1], data: mm[2] });
+    }
+
+    // If regex above doesn't work well, use a brace-counting approach
+    if (matchups.length === 0) {
+      // Alternative: extract all match URLs and match them with scores
+      const matchUrlRe = /"matchPageURL":"\/matches\/(\d+)\/([^"]+)"/g;
+      const matchScoreRe = /"team1Score":(\d+),"team2Score":(\d+),"team1Winner":(true|false)/g;
+
+      const matchEntries: { id: number; url: string; idx: number }[] = [];
+      let mu;
+      while ((mu = matchUrlRe.exec(html)) !== null) {
+        matchEntries.push({ id: parseInt(mu[1]), url: mu[2], idx: mu.index });
+      }
+
+      const scores: { team1Score: number; team2Score: number; team1Winner: boolean; idx: number }[] = [];
+      let ms;
+      while ((ms = matchScoreRe.exec(html)) !== null) {
+        scores.push({
+          team1Score: parseInt(ms[1]),
+          team2Score: parseInt(ms[2]),
+          team1Winner: ms[3] === 'true',
+          idx: ms.index,
+        });
+      }
+
+      // Match scores to match entries by proximity in HTML
+      const results: SimpleMatch[] = [];
+      const seenMatchIds = new Set<number>();
+
+      for (const entry of matchEntries) {
+        // Find the closest score to this match entry
+        let bestScore: typeof scores[0] | null = null;
+        let bestDist = Infinity;
+        for (const score of scores) {
+          const dist = Math.abs(score.idx - entry.idx);
+          if (dist < bestDist && dist < 20000) {
+            bestDist = dist;
+            bestScore = score;
+          }
+        }
+
+        // Parse team names from URL slug: "vitality-vs-g2-blast-rivals-..."
+        const parts = entry.url.split('-');
+        const vsIdx = parts.findIndex(p => p === 'vs');
+        if (vsIdx === -1) continue;
+
+        const teamASlug = parts.slice(0, vsIdx).join('-');
+        const after = parts.slice(vsIdx + 1);
+        // Stop at tournament name markers
+        const endIdx = after.findIndex(p =>
+          ['blast', 'iem', 'cac', 'major', 'cologne', 'atlanta', 'rivals', 'season'].includes(p.toLowerCase())
+        );
+        const teamBSlug = (endIdx === -1 ? after : after.slice(0, endIdx)).join('-');
+
+        const teamA = teamASlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        const teamB = teamBSlug.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+        if (!teamA || !teamB) continue;
+
+        let winner: string | null = null;
+        let score: string | null = null;
+
+        if (bestScore) {
+          score = `${bestScore.team1Score}-${bestScore.team2Score}`;
+          winner = bestScore.team1Winner ? teamA : teamB;
+        }
+
+        if (!seenMatchIds.has(entry.id)) {
+          seenMatchIds.add(entry.id);
+          results.push({
+            id: `m${entry.id}`,
+            teamA: slug(teamA),
+            teamB: slug(teamB),
+            winner: winner ? slug(winner) : null,
+            score,
+            stage: 'group',
+            matchType: 'BO3',
+            played: !!score,
+            date: null,
+            round: '',
+          });
+        }
+      }
+
+      // Sort: by played status, then by id
+      return results.sort((a, b) => {
+        if (a.played !== b.played) return a.played ? -1 : 1;
+        return a.id.localeCompare(b.id);
+      });
+    }
+
+    return [];
+  } catch (e) {
+    console.warn(`  ⚠ Failed to scrape matches from event page:`, (e as Error).message);
+    return [];
+  }
+}
+
 async function main() {
   console.log('Fetching CS2 tournament data from HLTV...\n');
 
@@ -160,48 +284,62 @@ async function main() {
       };
     });
 
-    // Extract matches
-    const matches: SimpleMatch[] = (eventDetail?.matches || []).map((m: any, i: number) => ({
-      id: `${cfg.id}-m${i + 1}`,
-      teamA: slug(m.team1?.name || m.leftTeam?.name || ''),
-      teamB: slug(m.team2?.name || m.rightTeam?.name || ''),
-      winner: m.winner ? slug(m.winner?.name || '') : null,
-      score: m.result || m.score || null,
-      stage: m.stage || 'group',
-      matchType: m.format || 'BO3',
-      played: !!m.result,
-      date: m.date || null,
-      round: m.title || '',
-    }));
+    // Scrape matches from event page (getEvent doesn't return matches)
+    console.log(`  Scraping match results...`);
+    const matches = await retry(() => scrapeEventMatches(event.id, event.name), `Match scrape for ${cfg.name}`);
 
-    // If HLTV has no match data but we have existing data with matches, keep existing
-    const existingHasMatches = existing[cfg.id]?.info?.stages?.some((s: any) => {
-      if (s.groups) for (const g of s.groups) if (g.matches?.length) return true;
-      if (s.playoffMatches?.length) return true;
-      return false;
+    if (matches.length === 0) {
+      // Check if existing data has matches to preserve
+      const existingHasMatches = existing[cfg.id]?.info?.stages?.some((s: any) => {
+        if (s.groups) for (const g of s.groups) if (g.matches?.length) return true;
+        if (s.playoffMatches?.length) return true;
+        return false;
+      });
+
+      if (existingHasMatches) {
+        console.log(`  No matches scraped — keeping existing stages but updating teams`);
+        tournamentData[cfg.id] = {
+          info: { ...existing[cfg.id].info, organizer: event.organizer || existing[cfg.id].info.organizer, dates: event.dateRange || existing[cfg.id].info.dates },
+          teams,
+        };
+        continue;
+      }
+    }
+
+    // Assign match stage/round from slot names
+    const stagePrefixes: string[] = [];
+    for (const m of matches) { stagePrefixes.push(m.id); }
+    // Determine group vs playoff from match order/IDs
+    // HLTV match IDs are sequential — early IDs = group stage
+    const sortedMatches = [...matches].sort((a, b) => a.id.localeCompare(b.id));
+    const groupMatchCount = Math.min(sortedMatches.length, 8); // up to 8 group matches
+    sortedMatches.forEach((m, i) => {
+      m.stage = i < groupMatchCount ? 'group' : 'playoff';
+      m.id = `${cfg.id}-m${i + 1}`;
     });
 
-    if (matches.length === 0 && existingHasMatches) {
-      console.log(`  No matches from HLTV — keeping existing stages but updating teams`);
-      tournamentData[cfg.id] = {
-        info: { ...existing[cfg.id].info, organizer: event.organizer || existing[cfg.id].info.organizer, dates: event.dateRange || existing[cfg.id].info.dates },
-        teams,
-      };
+    if (sortedMatches.length === 0 && existing[cfg.id]?.info?.stages) {
+      // No matches found, keep existing
+      tournamentData[cfg.id] = existing[cfg.id];
     } else {
-      // Build stages from match data
-      const groupMatches = matches.filter(m => m.stage === 'group' || m.stage.includes('group'));
-      const playoffMatches = matches.filter(m => m.stage === 'playoff' || m.stage.includes('playoff'));
+      // Build stages
+      // Split group matches into A/B groups
+      const groupMatches = sortedMatches.filter(m => m.stage === 'group');
+      const playoffMatches = sortedMatches.filter(m => m.stage === 'playoff');
+
+      const half = Math.ceil(groupMatches.length / 2);
+      const groupA = groupMatches.slice(0, half);
+      const groupB = groupMatches.slice(half);
 
       const stages: any[] = [];
-      if (groupMatches.length > 0) {
-        const half = Math.ceil(groupMatches.length / 2);
+      if (groupA.length > 0) {
         stages.push({
           name: '小组赛',
           desc: `${teams.length} 支队伍参赛`,
           type: 'gsl',
           groups: [
-            { name: 'A 组', matches: groupMatches.slice(0, half) },
-            ...(half < groupMatches.length ? [{ name: 'B 组', matches: groupMatches.slice(half) }] : []),
+            { name: 'A 组', matches: groupA },
+            ...(groupB.length > 0 ? [{ name: 'B 组', matches: groupB }] : []),
           ],
         });
       }
@@ -209,20 +347,18 @@ async function main() {
         stages.push({
           name: '季后赛',
           desc: '单败淘汰',
-          type: 'playoff8',
+          type: playoffMatches.length > 4 ? 'playoff8' : 'playoff6',
           playoffMatches,
         });
       }
-
       if (stages.length === 0) {
         stages.push({
-          name: eventDetail?.prize ? '进行中' : '待公布',
-          desc: eventDetail?.prize || '参赛队伍待公布',
+          name: '待公布',
+          desc: '参赛队伍待公布',
           type: 'gsl',
           groups: [],
         });
       }
-
       tournamentData[cfg.id] = {
         info: {
           id: cfg.id,
