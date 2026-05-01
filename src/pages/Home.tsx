@@ -25,9 +25,6 @@ export default function Home() {
     <div style={{ maxWidth: 880, margin: '0 auto', padding: '56px 24px 64px' }} className="page-enter">
       <div style={{ textAlign: 'center', marginBottom: 56 }}>
         <h1 style={{ fontSize: 48, fontWeight: 700, letterSpacing: -1.2, marginBottom: 14, lineHeight: 1.15, color: '#1d1d1f' }}>赛制课堂</h1>
-        <p style={{ fontSize: 18, color: 'var(--text-secondary)', maxWidth: 520, margin: '0 auto', lineHeight: 1.65, fontWeight: 420 }}>
-          理解赛制 + 真实赛事，一站式搞懂 CS2。
-        </p>
       </div>
 
       {/* Learning cards */}
