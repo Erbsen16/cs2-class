@@ -1,5 +1,5 @@
 /**
- * Fetch real CS2 tournament data from HLTV and generate tournamentData.ts
+ * Fetch real CS2 tournament data from HLTV and update tournamentData.json
  * Run: npx tsx scripts/update-data.ts
  */
 
@@ -13,7 +13,25 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const OUTPUT = path.join(__dirname, '..', 'src', 'engine', 'tournamentData.ts');
+const OUTPUT = path.join(__dirname, '..', 'src', 'engine', 'tournamentData.json');
+
+// Retry with exponential backoff — HLTV is behind Cloudflare and often fails in CI
+async function retry<T>(fn: () => Promise<T>, label: string, maxRetries = 3): Promise<T> {
+  for (let i = 0; i <= maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (i === maxRetries) throw e;
+      const delay = Math.pow(2, i) * 2000 + Math.random() * 1000;
+      console.warn(`  ⚠ ${label} failed (attempt ${i + 1}/${maxRetries + 1}), retrying in ${(delay / 1000).toFixed(1)}s...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error('unreachable');
+}
+
+// Polite delay between API calls to avoid rate limits
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 // Tournament configs we care about (HLTV event names)
 const TRACKED_TOURNAMENTS = [
@@ -56,7 +74,7 @@ function slug(name: string): string {
 
 async function fetchTeamRanking(): Promise<Map<string, { rank: number; region: string }>> {
   try {
-    const rankings = await HLTV.getTeamRanking();
+    const rankings: any = await retry(() => HLTV.getTeamRanking(), 'Rankings fetch');
     const map = new Map<string, { rank: number; region: string }>();
     rankings.forEach((t: any, i: number) => {
       map.set(t.team.name.toLowerCase(), { rank: i + 1, region: t.team.region || 'EU' });
@@ -64,7 +82,7 @@ async function fetchTeamRanking(): Promise<Map<string, { rank: number; region: s
     console.log(`  Fetched ${map.size} team rankings`);
     return map;
   } catch (e) {
-    console.error('  Failed to fetch rankings:', (e as Error).message);
+    console.error('  Failed to fetch rankings after retries:', (e as Error).message);
     return new Map();
   }
 }
@@ -72,20 +90,30 @@ async function fetchTeamRanking(): Promise<Map<string, { rank: number; region: s
 async function main() {
   console.log('Fetching CS2 tournament data from HLTV...\n');
 
+  // Load existing data as fallback for tournaments not found on HLTV
+  let existing: Record<string, any> = {};
+  try {
+    const raw = fs.readFileSync(OUTPUT, 'utf-8');
+    const parsed = JSON.parse(raw);
+    existing = parsed.tournaments || {};
+    console.log(`  Loaded ${Object.keys(existing).length} existing tournaments as fallback\n`);
+  } catch (e) {
+    console.log('  No existing data to merge\n');
+  }
+
   // Get team rankings
   const rankings = await fetchTeamRanking();
 
   // Get all events
   let events: any[] = [];
   try {
-    const upcoming = await HLTV.getEvents();
-    events = upcoming || [];
+    events = await retry(() => HLTV.getEvents(), 'Events fetch') || [];
     console.log(`  Fetched ${events.length} upcoming/ongoing events`);
   } catch (e) {
-    console.error('  Failed to fetch events:', (e as Error).message);
+    console.error('  Failed to fetch events after retries:', (e as Error).message);
   }
 
-  const tournamentData: any[] = [];
+  const tournamentData: Record<string, { info: any; teams: SimpleTeam[] }> = {};
 
   for (const cfg of TRACKED_TOURNAMENTS) {
     console.log(`\nProcessing: ${cfg.name}...`);
@@ -97,7 +125,10 @@ async function main() {
     );
 
     if (!event) {
-      console.log(`  Not found on HLTV — keeping existing data`);
+      console.log(`  Not found on HLTV — using existing data`);
+      if (existing[cfg.id]) {
+        tournamentData[cfg.id] = existing[cfg.id];
+      }
       continue;
     }
 
@@ -106,10 +137,13 @@ async function main() {
     // Get event details with matches
     let eventDetail: any = null;
     try {
-      eventDetail = await HLTV.getEvent({ id: event.id });
+      eventDetail = await retry(() => HLTV.getEvent({ id: event.id }), `Event detail for ${cfg.name}`);
     } catch (e) {
-      console.error(`  Failed to get event detail:`, (e as Error).message);
+      console.error(`  Failed to get event detail for ${cfg.name}:`, (e as Error).message);
     }
+
+    // Small delay between tournaments to avoid rate limits
+    await sleep(1500);
 
     // Extract teams
     const teams: SimpleTeam[] = (eventDetail?.teams || event.teams || []).map((t: any) => {
@@ -145,7 +179,6 @@ async function main() {
 
     const stages: any[] = [];
     if (groupMatches.length > 0) {
-      // Split into groups
       const half = Math.ceil(groupMatches.length / 2);
       stages.push({
         name: '小组赛',
@@ -175,8 +208,7 @@ async function main() {
       });
     }
 
-    tournamentData.push({
-      id: cfg.id,
+    tournamentData[cfg.id] = {
       info: {
         id: cfg.id,
         name: cfg.id === 'major' ? 'Major' : cfg.id === 'cac' ? 'CAC 2026' : event.name || cfg.name,
@@ -185,66 +217,23 @@ async function main() {
         color: cfg.color,
         organizer: event.organizer || '',
         dates: event.dateRange || '',
-        location: event.location || '',
+        location: typeof event.location === 'string' ? event.location : event.location?.name || '',
         prize: event.prize || '',
         format: event.format || '',
         stages,
       },
       teams,
-    });
+    };
   }
 
-  // Generate output
-  const output = generateOutput(tournamentData);
-  fs.writeFileSync(OUTPUT, output, 'utf-8');
+  // Write output
+  const output = {
+    lastUpdated: new Date().toISOString(),
+    tournaments: tournamentData,
+  };
+  fs.writeFileSync(OUTPUT, JSON.stringify(output, null, 2) + '\n', 'utf-8');
   console.log(`\n✅ Written to ${OUTPUT}`);
-}
-
-function generateOutput(tournaments: any[]): string {
-  const teamMap = new Map<string, any>();
-  for (const t of tournaments) {
-    for (const team of t.teams) {
-      if (!teamMap.has(team.id)) teamMap.set(team.id, team);
-    }
-  }
-
-  const teamsCode = JSON.stringify(
-    Object.fromEntries(Array.from(teamMap.entries()).map(([id, t]) => [id, t])),
-    null, 2
-  );
-
-  const tournamentsCode = JSON.stringify(
-    Object.fromEntries(tournaments.map(t => [t.id, { info: t.info, teams: t.teams }])),
-    null, 2
-  );
-
-  return `// Auto-generated from HLTV — ${new Date().toISOString()}
-// Run: npx tsx scripts/update-data.ts
-export const LAST_UPDATED = '${new Date().toISOString()}';
-
-export interface RealTeam {
-  id: string; name: string; shortName: string; region: string; rank: number; color: string;
-}
-
-export interface RealMatch {
-  id: string; teamA: string; teamB: string; winner: string | null; score?: string;
-  stage: string; round?: string; matchType: string; played: boolean; date?: string;
-}
-
-export interface RealTournament {
-  id: string; name: string; fullName: string; icon: string; color: string;
-  organizer: string; dates: string; location: string; prize: string; format: string;
-  stages: { name: string; desc: string; type: 'gsl' | 'swiss' | 'playoff8' | 'playoff6';
-    groups?: { name: string; matches: RealMatch[] }[];
-    matches?: RealMatch[]; playoffMatches?: RealMatch[]; }[];
-}
-
-const teamData: Record<string, RealTeam> = ${teamsCode};
-
-const tournamentData: Record<string, { info: RealTournament; teams: RealTeam[] }> = ${tournamentsCode};
-
-export const tournaments = tournamentData;
-`.trimStart();
+  console.log(`  Tournaments: ${Object.keys(tournamentData).join(', ')}`);
 }
 
 main().catch(console.error);

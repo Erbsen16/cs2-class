@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m ' *)",
+      "Bash(git remote *)",
+      "Bash(gh run *)",
+      "Bash(curl -sI --max-time 10 https://erbsen16.github.io/cs2-class/)",
+      "Bash(nslookup erbsen16.github.io)",
+      "Bash(gh workflow *)",
+      "Bash(node -e \"import\\('hltv'\\).then\\(m => console.log\\('ESM import works:', Object.keys\\(m\\)\\)\\).catch\\(e => console.log\\('ESM import failed:', e.message\\)\\)\")",
+      "Bash(git checkout *)",
+      "Bash(node -e ' *)"
+    ]
+  }
+}
